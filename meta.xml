@@ -1,0 +1,6 @@
+<root>
+  <id>wotstat.data-provider</id>
+  <version>{{VERSION}}</version>
+  <name>wotstat.data-provider</name>
+  <description>DataProvider by WotStat</description>
+</root>
