@@ -3,7 +3,7 @@ from .common.ServerLoggerBackend import ServerLoggerBackend
 from .common.Logger import Logger, SimpleLoggerBackend
 from .common.Config import Config
 
-from .main.WebSocketDataProvider import WebSocketDataProvider
+from .main import setup
 
 
 DEBUG_MODE = '{{DEBUG_MODE}}'
@@ -28,4 +28,4 @@ class WotstatDataProvider(object):
                           minLevel="INFO")
     ])
     
-    webSocketDataProvider = WebSocketDataProvider(logger)
+    setup(logger)
