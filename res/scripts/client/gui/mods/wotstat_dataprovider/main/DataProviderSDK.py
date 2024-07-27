@@ -1,6 +1,5 @@
-
 import json
-from typing import List
+from typing import List, Callable
 
 from .WebSocketDataProvider import WebSocketDataProvider
 from .ILogger import ILogger
@@ -36,7 +35,7 @@ class Trigger(object):
     self.__path = path
     self.__wsDataProvider = wsDataProvider
     
-  def trigger(self, value):
+  def trigger(self, value=None):
     e = canSerializeValue(value)
     if e != True:
       raise Exception("Failed to serialize value: %s" % e)
@@ -50,11 +49,19 @@ class DPExtension(object):
     self.__name = name
     
   def createState(self, path):
-    # type: (List[str]) -> State
+    # type: (List[str] | str) -> State
+    
+    if isinstance(path, str):
+      path = [path]
+    
     return State(['extensions', self.__name] + path, self.__wsDataProvider)
   
   def createTrigger(self, path):
-    # type: (List[str]) -> Trigger
+    # type: (List[str] | str) -> Trigger
+    
+    if isinstance(path, str):
+      path = [path]
+    
     return Trigger(['extensions', self.__name] + path, self.__wsDataProvider)
 
 class DataProviderSDK(object):
@@ -73,4 +80,18 @@ class DataProviderSDK(object):
     return Trigger(path, self.__wsDataProvider)
   
   def registerExtension(self, extension):
+    # type: (str) -> DPExtension
     return DPExtension(extension, self.__wsDataProvider)
+
+class PublicDataProviderSDK(object):
+  version = 1
+  
+  def __init__(self, registerExtension):
+    # type: (Callable[[str], DPExtension]) -> None
+    self.__registerExtension = registerExtension
+    
+  def registerExtension(self, extension):
+    return self.__registerExtension(extension)
+  
+  def dispose(self):
+    pass

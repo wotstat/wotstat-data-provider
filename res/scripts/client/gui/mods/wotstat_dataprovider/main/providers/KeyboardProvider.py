@@ -34,3 +34,4 @@ class KeyboardProvider(object):
     if event.key in self.keycodeToName:
       key = self.keycodeToName[event.key]
       self.onAnyKey.trigger({'key': key, 'isKeyDown': event.isKeyDown()})
+      
