@@ -1,7 +1,7 @@
 import json
-from typing import List, Callable
+from typing import List
 
-from .WebSocketDataProvider import WebSocketDataProvider
+from .WebSocketDataProvider import WebSocketDataProvider, WSClient
 from .ILogger import ILogger
 
 def canSerializeValue(value):
@@ -27,7 +27,11 @@ class State(object):
       raise Exception("Failed to serialize value: %s" % e)
     
     self.__value = value
-    self.__wsDataProvider.sendMessage(json.dumps({ "type": "state", "path": '.'.join(self.__path), "value": value }))
+    path, value = self.getPathValue()
+    self.__wsDataProvider.sendMessage(json.dumps({ "type": "state", "path": path, "value": value }))
+    
+  def getPathValue(self):
+    return ('.'.join(self.__path), self.__value)
   
 class Trigger(object):
   def __init__(self, path, wsDataProvider):
@@ -43,55 +47,68 @@ class Trigger(object):
     self.__wsDataProvider.sendMessage(json.dumps({ "type": "trigger", "path": '.'.join(self.__path), "value": value }))
 
 class DPExtension(object):
-  def __init__(self, name, wsDataProvider):
-    # type: (str, WebSocketDataProvider) -> None
-    self.__wsDataProvider = wsDataProvider
+  def __init__(self, name, sdk):
+    # type: (str, DataProviderSDK) -> None
+    self.__sdk = sdk
     self.__name = name
     
-  def createState(self, path):
-    # type: (List[str] | str) -> State
-    
-    if isinstance(path, str):
-      path = [path]
-    
-    return State(['extensions', self.__name] + path, self.__wsDataProvider)
+  def createState(self, path, initialValue = None):
+    # type: (List[str] | str, any) -> State
+    return self.__sdk.createState(['extensions', self.__name] + path, initialValue)
   
   def createTrigger(self, path):
     # type: (List[str] | str) -> Trigger
-    
-    if isinstance(path, str):
-      path = [path]
-    
-    return Trigger(['extensions', self.__name] + path, self.__wsDataProvider)
+    return self.__sdk.createTrigger(['extensions', self.__name] + path)
 
 class DataProviderSDK(object):
   
   def __init__(self, wsDataProvider, logger):
     # type: (WebSocketDataProvider, ILogger) -> None
-    self.__wsDataProvider = wsDataProvider
-    self.__logger = logger
+    self.wsDataProvider = wsDataProvider
+    self.logger = logger
+    self.states = [] # type: List[State]
+    self.extensionsState = self.createState('registeredExtensions', [])
+    wsDataProvider.onClientConnected += self.__onClientConnected
     
   def createState(self, path, initialValue = None):
-    # type: (List[str], any) -> State
-    return State(path, self.__wsDataProvider, initialValue)
+    # type: (List[str] | str, any) -> State
+    if isinstance(path, str):
+      path = [path]
+    
+    state = State(path, self.wsDataProvider, initialValue)
+    self.states.append(state)
+    self.logger.debug("State created: %s" % str(path))
+    
+    return state
   
   def createTrigger(self, path):
-    # type: (List[str]) -> Trigger
-    return Trigger(path, self.__wsDataProvider)
+    # type: (List[str] | str) -> Trigger
+    if isinstance(path, str):
+      path = [path]
+    
+    trigger = Trigger(path, self.wsDataProvider)
+    self.logger.debug("Trigger created: %s" % str(path))
+    
+    return trigger
   
   def registerExtension(self, extension):
     # type: (str) -> DPExtension
-    return DPExtension(extension, self.__wsDataProvider)
-
-class PublicDataProviderSDK(object):
-  version = 1
-  
-  def __init__(self, registerExtension):
-    # type: (Callable[[str], DPExtension]) -> None
-    self.__registerExtension = registerExtension
+    if extension in self.extensionsState.getValue():
+      raise Exception("Extension already registered: %s" % extension)
     
-  def registerExtension(self, extension):
-    return self.__registerExtension(extension)
+    self.extensionsState.setValue(self.extensionsState.getValue() + [extension])
+    return DPExtension(extension, self)
   
   def dispose(self):
-    pass
+    self.wsDataProvider.dispose()
+    self.logger.info("DataProviderSDK disposed")
+    
+  def __onClientConnected(self, client):
+    # type: (WSClient) -> None
+    
+    client.send_message_text(json.dumps({
+      "type": "init",
+      "states": [ { "path": t[0], "value": t[1] } for t in [state.getPathValue() for state in self.states]] 
+    }))
+    
+    self.logger.info("Sent all states to new client")

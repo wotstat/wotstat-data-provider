@@ -1,16 +1,19 @@
 import BigWorld
 
 from threading import Thread, Lock
-
-from typing import List
+from Event import Event
 
 from .simple_websocket_server import WebSocket, WebSocketServer
 from .ILogger import ILogger
 from .ExceptionHandling import withExceptionHandling
 
+from typing import List
+
 
 logger = None # type: ILogger
 clients = [] # type: List[WebSocket]
+enabled = True
+instance = None # type: WebSocketDataProvider
 
 class WSClient(WebSocket):
   @withExceptionHandling(logger)
@@ -22,6 +25,7 @@ class WSClient(WebSocket):
   def connected(self):
     logger.info("Connected %s" % str(self.address))
     clients.append(self)
+    instance.onClientConnected(self)
     
   @withExceptionHandling(logger)
   def handle_close(self):
@@ -34,9 +38,13 @@ class WebSocketDataProvider(object):
   def __init__(self, loggerInstance):
     # type: (ILogger) -> None
     
-    global logger
+    global logger, instance
     logger = loggerInstance
+    instance = self
+    
     logger.info("Starting WebSocketDataProvider")
+    
+    self.onClientConnected = Event()
     
     self.server = WebSocketServer('', 38200, WSClient)
     
@@ -48,7 +56,7 @@ class WebSocketDataProvider(object):
     
   def _requestLoop(self, server):
     # type: (WebSocketServer) -> None
-    while True:
+    while enabled:
       try:
         server.handle_request()
       except Exception as e:
@@ -59,3 +67,13 @@ class WebSocketDataProvider(object):
     logger.debug("Sending message to %s clients: %s" % (len(clients), message))
     for client in clients:
       client.send_message_text(message)
+      
+  def dispose(self):
+    # type: () -> None
+    global enabled
+    enabled = False
+    
+    self.serverThread.join()
+    self.server.close()
+    
+    logger.info("WebSocketDataProvider stopped")

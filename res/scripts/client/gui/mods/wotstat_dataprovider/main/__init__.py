@@ -1,17 +1,41 @@
 import BigWorld
+from typing import Callable
+
 from WebSocketDataProvider import WebSocketDataProvider
-from DataProviderSDK import DataProviderSDK, PublicDataProviderSDK
+from DataProviderSDK import DataProviderSDK, DPExtension
 
 from providers import setup as setupProviders
 
+class PublicDataProviderSDK(object):
+  version = 1
+  
+  def __init__(self, registerExtension, dispose):
+    # type: (Callable[[str], DPExtension], Callable[[]]) -> None
+    self.__registerExtension = registerExtension
+    self.__dispose = dispose
+    
+  def registerExtension(self, extension):
+    return self.__registerExtension(extension)
+  
+  def dispose(self):
+    self.__dispose()
+  
 
 def setup(logger):
 
   def createSDK():
     dataProviderSDK = DataProviderSDK(WebSocketDataProvider(logger), logger)
-    publicDataProviderSDK = PublicDataProviderSDK(dataProviderSDK.registerExtension)
+    publicDataProviderSDK = PublicDataProviderSDK(dataProviderSDK.registerExtension, dataProviderSDK.dispose)
     BigWorld.wotstat_dataProvider = publicDataProviderSDK
-    BigWorld.callback(0, lambda: setupProviders(dataProviderSDK) if publicDataProviderSDK == BigWorld.wotstat_dataProvider else None)
+    
+    def nextFrame():
+      if publicDataProviderSDK == BigWorld.wotstat_dataProvider:
+        setupProviders(dataProviderSDK)
+        logger.info("DataProviderSDK providers setup complete")
+      else:
+        logger.info("DataProviderSDK has been replaced before setup")
+    
+    BigWorld.callback(0, nextFrame)
     
   
   if hasattr(BigWorld, 'wotstat_dataProvider'):
