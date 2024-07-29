@@ -7,7 +7,7 @@ from DataProviderSDK import DataProviderSDK, DPExtension
 from providers import setup as setupProviders
 
 class PublicDataProviderSDK(object):
-  version = 1
+  version = 2
   
   def __init__(self, registerExtension, dispose):
     # type: (Callable[[str], DPExtension], Callable[[]]) -> None
@@ -31,6 +31,7 @@ def setup(logger):
     def nextFrame():
       if publicDataProviderSDK == BigWorld.wotstat_dataProvider:
         setupProviders(dataProviderSDK)
+        dataProviderSDK.setup()
         logger.info("DataProviderSDK providers setup complete")
       else:
         logger.info("DataProviderSDK has been replaced before setup")

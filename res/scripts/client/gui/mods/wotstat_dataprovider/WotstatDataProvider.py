@@ -14,10 +14,12 @@ logger = Logger.instance()
 class WotstatDataProvider(object):
   
   def __init__(self):
-    logger.info("Starting WotStatWidget")
+    logger.info("Starting WotstatDataProvider")
     
     self.config = Config(CONFIG_PATH)
     version = self.config.get("version")
+    
+    logger.info("WotstatDataProvider version: %s" % version)
     
     logger.setup([
       SimpleLoggerBackend(prefix="[MOD_WOTSTAT_DP]", minLevel="INFO" if not DEBUG_MODE else "DEBUG"),
