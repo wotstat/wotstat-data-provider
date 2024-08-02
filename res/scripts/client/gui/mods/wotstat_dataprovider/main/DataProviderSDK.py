@@ -22,6 +22,9 @@ class State(object):
     return self.__value
   
   def setValue(self, value):
+    if self.__value == value:
+      return
+    
     e = canSerializeValue(value)
     if e != True:
       raise Exception("Failed to serialize value: %s" % e)
