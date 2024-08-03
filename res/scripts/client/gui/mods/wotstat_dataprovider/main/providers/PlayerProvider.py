@@ -6,12 +6,11 @@ from Event import Event
 
 from ..DataProviderSDK import DataProviderSDK
 
-from typing import Dict
-
 class PlayerProvider(object):
   
   def __init__(self, sdk):
     # type: (DataProviderSDK) -> None
+    
     self.playerName = sdk.createState(['player', 'name'], None)
     self.playerId = sdk.createState(['player', 'id'], None)
     
