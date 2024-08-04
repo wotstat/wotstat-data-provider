@@ -3,6 +3,7 @@ import BigWorld
 from PlayerEvents import g_playerEvents
 from ..hook import registerEvent
 from Event import Event
+from gui.clans.clan_cache import g_clanCache
 
 from ..DataProviderSDK import DataProviderSDK
 
@@ -11,8 +12,10 @@ class PlayerProvider(object):
   def __init__(self, sdk):
     # type: (DataProviderSDK) -> None
     
-    self.playerName = sdk.createState(['player', 'name'], None)
-    self.playerId = sdk.createState(['player', 'id'], None)
+    self.playerName = sdk.createState(['player', 'name'])
+    self.playerId = sdk.createState(['player', 'id'])
+    self.clanId = sdk.createState(['player', 'clanId'])
+    self.clanTag = sdk.createState(['player', 'clanTag'])
     
     g_playerEvents.onAccountBecomePlayer += self.__onAccountBecomePlayer
     
@@ -23,11 +26,11 @@ class PlayerProvider(object):
   def __onAccountBecomePlayer(self):
     player = BigWorld.player() # type: PlayerAccount
     self.playerName.setValue(player.name)
-    print('PlayerProvider: Player name is %s' % player.name)
+    self.clanId.setValue(g_clanCache.clanDBID)
+    self.clanTag.setValue(g_clanCache.clanAbbrev)
     
   def __onPlayerId(self, playerId):
     self.playerId.setValue(playerId)
-    print('PlayerProvider: Player id is %s' % playerId)
   
 
 onPlayerId = Event()

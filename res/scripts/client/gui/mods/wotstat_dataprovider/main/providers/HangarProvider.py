@@ -27,6 +27,8 @@ class HangarProvider(object):
     self.boosters = sdk.createState(['hangar', 'vehicle', 'boosters'])
     self.isInBattle = sdk.createState(['hangar', 'vehicle', 'isInBattle'], False)
     self.isBroken = sdk.createState(['hangar', 'vehicle', 'isBroken'], False)
+    self.postProgression = sdk.createState(['hangar', 'vehicle', 'postProgression'])
+    self.xp = sdk.createState(['hangar', 'vehicle', 'xp'])
     
     self.hangarsSpace.onVehicleChanged += self.__onVehicleChanged
     g_playerEvents.onAccountBecomePlayer += self.__onAccountBecomePlayer
@@ -69,7 +71,7 @@ class HangarProvider(object):
         'efficiencyRoleLevel': t[1].efficiencyRoleLevel,
         'vehicleTag': t[1].getVehicle().name,
         'roles': t[1].roles(),
-        'slills': [{
+        'skills': [{
           'tag': s.name,
           'level': s.level,
         } for s in t[1].skills]
@@ -97,3 +99,28 @@ class HangarProvider(object):
     self.consumables.setValue([vehicles.getItemByCompactDescr(t).name if t else None for t in item.consumables.installed.getStorage])
     self.boosters.setValue([vehicles.getItemByCompactDescr(t).name if t else None for t in item.battleBoosters.installed.getStorage])
     
+    postProgressionCache = vehicles.g_cache.postProgression()
+    postProgressionState = item.postProgression.getState()
+    
+    levels = filter(lambda t: t <= 10, postProgressionState.unlocks)
+    level = max(levels) if len(levels) else 0
+    features = {
+      'optSwitchEnabled': 1 not in postProgressionState.disabledSwitches,
+      'shellsSwitchEnabled': 2 not in postProgressionState.disabledSwitches,
+    }
+    
+    
+    unlockedModifications = filter(lambda t: t > 10, postProgressionState.unlocks)
+    rawTree = item.postProgression.getRawTree()
+    possibleModifications = sorted(filter(lambda t: t > 10, rawTree.steps.keys())) if rawTree else []
+    unlockedModificationsName = [postProgressionCache.modifications[t].name for t in unlockedModifications]
+    selectedModificationsName = [postProgressionCache.modifications[t[0] * 10 + t[1]].name if t[1] else None for t in [(t, postProgressionState.getPair(t)) for t in possibleModifications]]
+    
+    self.postProgression.setValue({
+      'level': level,
+      'features': features,
+      'unlockedModifications': unlockedModificationsName,
+      'selectedModifications': selectedModificationsName,
+    })
+    
+    self.xp.setValue(item.xp)
