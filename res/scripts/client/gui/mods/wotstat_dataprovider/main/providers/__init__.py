@@ -16,6 +16,7 @@ def setup(dataProviderSDK, loggerInstance):
   from HangarProvider import HangarProvider
   from GameStateProvider import GameStateProvider
   from PlatoonProvider import PlatoonProvider
+  from BattleProvider import BattleProvider
   
   # KeyboardProvider(dataProviderSDK, logger)
   PlayerProvider(dataProviderSDK)
@@ -24,3 +25,4 @@ def setup(dataProviderSDK, loggerInstance):
   HangarProvider(dataProviderSDK)
   GameStateProvider(dataProviderSDK)
   PlatoonProvider(dataProviderSDK)
+  BattleProvider(dataProviderSDK)

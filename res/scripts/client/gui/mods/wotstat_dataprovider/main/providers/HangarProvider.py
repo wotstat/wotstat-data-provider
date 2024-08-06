@@ -1,5 +1,6 @@
 import HangarVehicle
-from constants import ROLE_TYPE_TO_LABEL
+import BigWorld
+from constants import PREBATTLE_TYPE_NAMES, QUEUE_TYPE_NAMES, ROLE_TYPE_TO_LABEL
 from helpers import dependency
 from ..DataProviderSDK import DataProviderSDK
 from PlayerEvents import g_playerEvents
@@ -7,8 +8,12 @@ from skeletons.gui.shared.utils import IHangarSpace
 from CurrentVehicle import g_currentVehicle
 from shared_utils import first
 from items import vehicles
+from gui.prb_control.dispatcher import _PreBattleDispatcher, g_prbLoader
+from gui.Scaleform.daapi.view.lobby.battle_queue import BattleQueue
+from Event import Event
 from . import logger
 
+from ..hook import registerEvent
 from ..ExceptionHandling import withExceptionHandling
 
 
@@ -19,6 +24,7 @@ class HangarProvider(object):
   def __init__(self, sdk):
     # type: (DataProviderSDK) -> None
     
+    self.isInHangar = sdk.createState(['hangar', 'isInHangar'], False)
     self.vehicle = sdk.createState(['hangar', 'vehicle', 'info'])
     self.crew = sdk.createState(['hangar', 'vehicle', 'crew'])
     self.optDevices = sdk.createState(['hangar', 'vehicle', 'optDevices'])
@@ -29,22 +35,39 @@ class HangarProvider(object):
     self.isBroken = sdk.createState(['hangar', 'vehicle', 'isBroken'], False)
     self.postProgression = sdk.createState(['hangar', 'vehicle', 'postProgression'])
     self.xp = sdk.createState(['hangar', 'vehicle', 'xp'])
+    self.battleMode = sdk.createState(['hangar', 'battleMode'])
+    self.isInQueue = sdk.createState(['hangar', 'isInQueue'], False)
+    self.onEnqueueTrigger = sdk.createTrigger(['hangar', 'onEnqueue'])
+    self.onDequeueTrigger = sdk.createTrigger(['hangar', 'onDequeue'])
     
     self.hangarsSpace.onVehicleChanged += self.__onVehicleChanged
     g_playerEvents.onAccountBecomePlayer += self.__onAccountBecomePlayer
     g_playerEvents.onAccountBecomeNonPlayer += self.__onAccountBecomeNonPlayer
     
-  
+    global onBattleModeChange
+    onBattleModeChange += self.__onBattleModeChange
+    
+    global onEnqueue
+    onEnqueue += self.__onEnqueue
+    
+    g_playerEvents.onDequeued += self.__onDequeue
+    
   def __onAccountBecomePlayer(self):
     g_currentVehicle.onChanged += self.__onCurrentVehicleChanged
     self.__onCurrentVehicleChanged()
+    self.isInHangar.setValue(True)
     
   def __onAccountBecomeNonPlayer(self):
     g_currentVehicle.onChanged -= self.__onCurrentVehicleChanged
+    self.isInHangar.setValue(False)
   
   @withExceptionHandling(logger)
   def __onVehicleChanged(self, *args, **kwargs):
     vehicle = self.hangarsSpace.getVehicleEntity() # type: HangarVehicle
+    if not vehicle:
+      self.vehicle.setValue(None)
+      return
+    
     self.vehicle.setValue({
       'tag': vehicle.typeDescriptor.name,
       'class': vehicle.typeDescriptor.type.classTag,
@@ -124,3 +147,33 @@ class HangarProvider(object):
     })
     
     self.xp.setValue(item.xp)
+  
+  @withExceptionHandling(logger)
+  def __onBattleModeChange(self):
+    dispatcher = g_prbLoader.getDispatcher()
+    solo = QUEUE_TYPE_NAMES.get(dispatcher.getFunctionalState().entityTypeID, None)
+    squad = PREBATTLE_TYPE_NAMES.get(dispatcher.getFunctionalState().entityTypeID, None)
+    
+    self.battleMode.setValue(squad if dispatcher.getFunctionalState().isInUnit() else solo)
+    
+  @withExceptionHandling(logger)
+  def __onEnqueue(self, *a, **k):
+    self.isInQueue.setValue(True)
+    self.onEnqueueTrigger.trigger()
+  
+  @withExceptionHandling(logger)
+  def __onDequeue(self, *a, **k):
+    self.isInQueue.setValue(False)
+    self.onDequeueTrigger.trigger()
+
+onBattleModeChange = Event()
+onEnqueue = Event()
+
+@registerEvent(_PreBattleDispatcher, '_PreBattleDispatcher__setEntity')
+def setEntity(self, *a, **k):
+  onBattleModeChange()
+  
+@registerEvent(BattleQueue, '_populate')
+def queuePopulate(self, *a, **k):
+  onEnqueue()
+  
