@@ -60,6 +60,10 @@ class AimingProvider(object):
   # set client
   @withExceptionHandling(logger)
   def __onUpdateGunMarker(self, obj, *args, **kwargs):
+    vehicle = obj._avatar.getVehicleAttached()
+    if vehicle is None: return
+    if vehicle.id != BigWorld.player().playerVehicleID: return
+    
     shotPos, shotVec = obj.getCurShotPosition()
     self.markerClientPosition = obj._VehicleGunRotator__getGunMarkerPosition(
       shotPos, shotVec, obj._VehicleGunRotator__dispersionAngles)[0]

@@ -1,10 +1,13 @@
 import BigWorld
 from ClientArena import ClientArena
+import TriggersManager
 from constants import ROLE_TYPE_TO_LABEL, ARENA_BONUS_TYPE_IDS, ARENA_GAMEPLAY_NAMES, ATTACK_REASONS, ARENA_PERIOD_NAMES
 from helpers import dependency
 from items.vehicles import VehicleDescriptor
 from skeletons.gui.battle_session import IBattleSessionProvider
 import copy
+
+from vehicle_systems.vehicle_damage_state import VehicleDamageState
 
 from ..DataProviderSDK import DataProviderSDK
 from Avatar import PlayerAvatar
@@ -17,7 +20,7 @@ from ..hook import registerEvent
 from ..ExceptionHandling import withExceptionHandling
 from . import logger
 
-class BattleProvider(object):
+class BattleProvider(TriggersManager.ITriggerListener):
   
   
   sessionProvider = dependency.descriptor(IBattleSessionProvider) # type: IBattleSessionProvider
@@ -34,6 +37,7 @@ class BattleProvider(object):
   
     self.health = sdk.createState(['battle', 'health'], None)
     self.maxHealth = sdk.createState(['battle', 'maxHealth'], None)
+    self.isAlive = sdk.createState(['battle', 'isAlive'], None)
     
     self.onDamageTrigger = sdk.createTrigger(['battle', 'onDamage'])
     self.isInBattle = sdk.createState(['battle', 'isInBattle'], False)
@@ -46,10 +50,13 @@ class BattleProvider(object):
     self.gunPitch = sdk.createState(['battle', 'gunPitch'], 0.0)
     self.turretRotationSpeed = sdk.createState(['battle', 'turretRotationSpeed'], 0.0)
     
-    global onEnterWorld, onVehicleChanged, onHealthChanged
+    TriggersManager.g_manager.addListener(self)
+    
+    global onEnterWorld, onVehicleChanged, onHealthChanged, onVehicleDamageStateUpdate
     onEnterWorld += self.__onEnterWorld
     onVehicleChanged += self.__onVehicleChanged
     onHealthChanged += self.__onHealthChanged
+    onVehicleDamageStateUpdate += self.__onVehicleDamageStateUpdate
     
     self.sessionProvider.onBattleSessionStart += self.__onBattleSessionStart
     self.sessionProvider.onBattleSessionStop += self.__onBattleSessionStop
@@ -105,6 +112,7 @@ class BattleProvider(object):
       return
     self.health.setValue(vehicle.health)
     self.maxHealth.setValue(vehicle.maxHealth)
+    self.isAlive.setValue(bool(vehicle.isAlive()))
     
   def typeDescriptorToVehicleInfo(self, typeDescriptor):
     # type: (VehicleDescriptor) -> dict
@@ -128,6 +136,7 @@ class BattleProvider(object):
     
     self.vehicle.setValue(self.typeDescriptorToVehicleInfo(typeDescriptor))
     self.maxHealth.setValue(vehicle.maxHealth)
+    self.isAlive.setValue(bool(vehicle.isAlive()))
 
   @withExceptionHandling(logger)
   def __onHealthChanged(self, obj, newHealth, oldHealth, attackerID, attackReasonID, *a, **k):
@@ -135,6 +144,7 @@ class BattleProvider(object):
     if vehId == BigWorld.player().playerVehicleID:
       self.health.setValue(newHealth)
       self.maxHealth.setValue(obj.maxHealth)
+      self.isAlive.setValue(bool(obj.isAlive()))
       
     targetVehicle = BigWorld.entity(vehId) # type: Vehicle
     attackerVehicle = BigWorld.entity(attackerID) # type: Vehicle
@@ -207,7 +217,14 @@ class BattleProvider(object):
       teamData[idx] = newData
       
     self.teamBases.setValue(current)
-  
+
+  @withExceptionHandling(logger)
+  def __onVehicleDamageStateUpdate(self, *a, **k):
+    vehicle = BigWorld.entity(BigWorld.player().playerVehicleID)
+    if not vehicle: return
+    
+    self.isAlive.setValue(bool(vehicle.isAlive()))
+
   @withExceptionHandling(logger)
   def __updateLoop(self):
     if self.started:
@@ -236,13 +253,12 @@ class BattleProvider(object):
       self.turretRotationSpeed.setValue(player.gunRotator.turretRotationSpeed)
     else:
       self.turretRotationSpeed.setValue(0.0)
-        
-    
-  
+
 
 onEnterWorld = Event()
 onVehicleChanged = Event()
 onHealthChanged = Event()
+onVehicleDamageStateUpdate = Event()
 
 @registerEvent(PlayerAvatar, 'onEnterWorld')
 def playerAvatarOnEnterWorld(self, *a, **k):
@@ -255,3 +271,7 @@ def playerAvatarOnVehicleChanged(self, *a, **k):
 @registerEvent(Vehicle, 'onHealthChanged')
 def vehicleOnHealthChanged(self, *a, **k):
   onHealthChanged(self, *a, **k)
+
+@registerEvent(VehicleDamageState, 'update')
+def vehicleDamageStateUpdate(self, *a, **k):
+  onVehicleDamageStateUpdate(self, *a, **k)

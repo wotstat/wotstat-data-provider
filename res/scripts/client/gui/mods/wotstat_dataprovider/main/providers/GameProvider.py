@@ -9,6 +9,7 @@ from helpers import dependency, getClientLanguage
 from constants import AUTH_REALM, SERVER_TICK_LENGTH
 from gui.Scaleform.daapi.view.lobby.battle_queue import BattleQueue
 from gui.Scaleform.daapi.view.login.LoginView import LoginView
+import BattleReplay
 
 from ..hook import registerEvent
 from ..ExceptionHandling import withExceptionHandling
@@ -36,6 +37,7 @@ class GameProvider(object):
     self.serverTime = sdk.createState(['game', 'serverTime'], None)
     self.ping = sdk.createState(['game', 'ping'], None)
     self.fps = sdk.createState(['game', 'fps'], None)
+    self.isInReplay = sdk.createState(['game', 'isInReplay'], False)
     
     self.connectionMgr.onConnected += self.__onConnected
     self.sessionProvider.onBattleSessionStart += self.__onBattleSessionStart
@@ -49,15 +51,18 @@ class GameProvider(object):
     
   def __onConnected(self, *args, **kwargs):
     self.server.setValue(self.connectionMgr.serverUserName)
+    self.isInReplay.setValue(BattleReplay.isPlaying())
     
   def __onBattleSessionStart(self):
     self.state.setValue(GAME_STATE.BATTLE)
+    self.isInReplay.setValue(BattleReplay.isPlaying())
     
   def __onLoginPopulate(self):
     self.state.setValue(GAME_STATE.LOGIN)
     
   def __onHangarSpaceCreate(self):
     self.state.setValue(GAME_STATE.HANGAR)
+    self.isInReplay.setValue(BattleReplay.isPlaying())
     
   def __serverTimeUpdateLoop(self):
     BigWorld.callback(1, self.__serverTimeUpdateLoop)
@@ -65,7 +70,7 @@ class GameProvider(object):
     
   def __pingFpsUpdateLoop(self):
     BigWorld.callback(0.1, self.__pingFpsUpdateLoop)
-    self.ping.setValue(BigWorld.LatencyInfo().value[3] - 0.5 * SERVER_TICK_LENGTH)
+    self.ping.setValue(max(BigWorld.LatencyInfo().value[3] - 0.5 * SERVER_TICK_LENGTH, 0))
     self.fps.setValue(BigWorld.getFPS()[1])
 
 onLoginPopulate = Event()

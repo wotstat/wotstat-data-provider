@@ -14,7 +14,6 @@ def setup(dataProviderSDK, loggerInstance):
   from GameProvider import GameProvider
   from AccountProvider import AccountProvider
   from HangarProvider import HangarProvider
-  from GameStateProvider import GameStateProvider
   from PlatoonProvider import PlatoonProvider
   from BattleProvider import BattleProvider
   from AimingProvider import AimingProvider
@@ -24,7 +23,6 @@ def setup(dataProviderSDK, loggerInstance):
   GameProvider(dataProviderSDK)
   AccountProvider(dataProviderSDK)
   HangarProvider(dataProviderSDK)
-  GameStateProvider(dataProviderSDK)
   PlatoonProvider(dataProviderSDK)
   BattleProvider(dataProviderSDK)
   AimingProvider(dataProviderSDK)
