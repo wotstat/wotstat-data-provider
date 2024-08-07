@@ -17,6 +17,7 @@ def setup(dataProviderSDK, loggerInstance):
   from GameStateProvider import GameStateProvider
   from PlatoonProvider import PlatoonProvider
   from BattleProvider import BattleProvider
+  from AimingProvider import AimingProvider
   
   # KeyboardProvider(dataProviderSDK, logger)
   PlayerProvider(dataProviderSDK)
@@ -26,3 +27,4 @@ def setup(dataProviderSDK, loggerInstance):
   GameStateProvider(dataProviderSDK)
   PlatoonProvider(dataProviderSDK)
   BattleProvider(dataProviderSDK)
+  AimingProvider(dataProviderSDK)

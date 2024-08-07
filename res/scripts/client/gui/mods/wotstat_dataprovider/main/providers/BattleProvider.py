@@ -7,11 +7,11 @@ from skeletons.gui.battle_session import IBattleSessionProvider
 import copy
 
 from ..DataProviderSDK import DataProviderSDK
-from Account import PlayerAccount
 from Avatar import PlayerAvatar
 from Vehicle import Vehicle
 from Event import Event
 from PlayerEvents import g_playerEvents
+from gun_rotation_shared import decodeGunAngles
 
 from ..hook import registerEvent
 from ..ExceptionHandling import withExceptionHandling
@@ -40,6 +40,11 @@ class BattleProvider(object):
     self.arenaPeriod = sdk.createState(['battle', 'period'], None)
     self.teamBases = sdk.createState(['battle', 'teamBases'], None)
     self.position = sdk.createState(['battle', 'position'], None)
+    self.rotation = sdk.createState(['battle', 'rotation'], None)
+    self.speedInfo = sdk.createState(['battle', 'velocity'], (0.0, 0.0))
+    self.turretYaw = sdk.createState(['battle', 'turretYaw'], 0.0)
+    self.gunPitch = sdk.createState(['battle', 'gunPitch'], 0.0)
+    self.turretRotationSpeed = sdk.createState(['battle', 'turretRotationSpeed'], 0.0)
     
     global onEnterWorld, onVehicleChanged, onHealthChanged
     onEnterWorld += self.__onEnterWorld
@@ -206,15 +211,32 @@ class BattleProvider(object):
   @withExceptionHandling(logger)
   def __updateLoop(self):
     if self.started:
-      self.battleLoopCallbackHandler = BigWorld.callback(1, self.__updateLoop)
+      self.battleLoopCallbackHandler = BigWorld.callback(0.1, self.__updateLoop)
     
     vehicle = BigWorld.entity(BigWorld.player().playerVehicleID) # type: Vehicle
     if vehicle:
-      self.position.setValue({
-        'x': vehicle.position.x,
-        'y': vehicle.position.y,
-        'z': vehicle.position.z,
-      })
+      self.position.setValue([vehicle.position.x, vehicle.position.y, vehicle.position.z])
+      self.rotation.setValue([vehicle.pitch, vehicle.yaw, vehicle.roll])
+      
+      if not vehicle.isStarted:
+        self.speedInfo.setValue((0.0, 0.0))
+        self.turretYaw.setValue(0.0)
+        self.gunPitch.setValue(0.0)
+      else:
+        info = vehicle.speedInfo.value
+        self.speedInfo.setValue((info[2], info[3]))
+        
+        turretYaw, gunPitch = decodeGunAngles(vehicle.gunAnglesPacked, vehicle.typeDescriptor.gun.pitchLimits['absolute'])
+        self.turretYaw.setValue(turretYaw)
+        self.gunPitch.setValue(gunPitch)
+        
+    
+    player = BigWorld.player()
+    if player.gunRotator:
+      self.turretRotationSpeed.setValue(player.gunRotator.turretRotationSpeed)
+    else:
+      self.turretRotationSpeed.setValue(0.0)
+        
     
   
 
