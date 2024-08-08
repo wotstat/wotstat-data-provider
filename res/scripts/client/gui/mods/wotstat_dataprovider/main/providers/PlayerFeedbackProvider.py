@@ -1,21 +1,39 @@
+from calendar import c
 from BattleFeedbackCommon import BATTLE_EVENT_TYPE
 from gui.battle_control.arena_info.arena_vos import VehicleArenaInfoVO
+from gui.battle_control.controllers.vehicle_state_ctrl import VehicleStateController
 from skeletons.gui.game_control import IGameSessionController
 from skeletons.gui.shared import IItemsCache
 from ..DataProviderSDK import DataProviderSDK
 from Account import PlayerAccount
 from PlayerEvents import g_playerEvents
 from items import vehicles as itemsVehicles
-from constants import PREMIUM_TYPE, ROLE_TYPE_TO_LABEL
+from constants import PREMIUM_TYPE, ROLE_TYPE_TO_LABEL, ATTACK_REASONS, BATTLE_LOG_SHELL_TYPES
 from helpers import dependency
 from gui.battle_control.battle_constants import PERSONAL_EFFICIENCY_TYPE
 from skeletons.gui.battle_session import IBattleSessionProvider, IArenaDataProvider
 from gui.battle_control.controllers.feedback_events import _CritsExtra, _DamageExtra, _MultiStunExtra, _VisibilityExtra, PlayerFeedbackEvent
-from typing import List
+from typing import List, Dict
 
 from . import logger
+from ..ExceptionHandling import logCurrentException
 
+IGNORE = 'IGNORE'
 
+BATTLE_LOG_SHELL_TYPES_NAMES = {
+  BATTLE_LOG_SHELL_TYPES.HOLLOW_CHARGE: 'HOLLOW_CHARGE',
+  BATTLE_LOG_SHELL_TYPES.HOLLOW_CHARGE: 'HOLLOW_CHARGE',
+  BATTLE_LOG_SHELL_TYPES.ARMOR_PIERCING: 'ARMOR_PIERCING',
+  BATTLE_LOG_SHELL_TYPES.ARMOR_PIERCING_HE: 'ARMOR_PIERCING_HE',
+  BATTLE_LOG_SHELL_TYPES.ARMOR_PIERCING_CR: 'ARMOR_PIERCING_CR',
+  BATTLE_LOG_SHELL_TYPES.SMOKE: 'SMOKE',
+  BATTLE_LOG_SHELL_TYPES.HE_MODERN: 'HE_MODERN',
+  BATTLE_LOG_SHELL_TYPES.HE_LEGACY_STUN: 'HE_LEGACY_STUN',
+  BATTLE_LOG_SHELL_TYPES.HE_LEGACY_NO_STUN: 'HE_LEGACY_NO_STUN',
+  BATTLE_LOG_SHELL_TYPES.FLAME: 'FLAME',
+}
+
+ATTACK_REASONS_MAX = len(ATTACK_REASONS)
 
 class PlayerFeedbackProvider(object):
   sessionProvider = dependency.descriptor(IBattleSessionProvider) # type: IBattleSessionProvider
@@ -29,60 +47,87 @@ class PlayerFeedbackProvider(object):
     self.sessionProvider.onBattleSessionStop += self.__onBattleSessionStop
     
     self.battleEventProcessors = {
-      BATTLE_EVENT_TYPE.SPOTTED: self.processSpotted,
-      BATTLE_EVENT_TYPE.RADIO_ASSIST: self.processRadioAssist,
-      BATTLE_EVENT_TYPE.TRACK_ASSIST: self.processTrackAssist,
-      BATTLE_EVENT_TYPE.BASE_CAPTURE_POINTS: self.processBaseCapturePoints,
-      BATTLE_EVENT_TYPE.BASE_CAPTURE_DROPPED: self.processBaseCaptureDropped,
-      BATTLE_EVENT_TYPE.TANKING: self.processTanking,
-      BATTLE_EVENT_TYPE.CRIT: self.processCrit,
-      BATTLE_EVENT_TYPE.DAMAGE: self.processDamage,
-      BATTLE_EVENT_TYPE.KILL: self.processKill,
-      BATTLE_EVENT_TYPE.RECEIVED_CRIT: self.processReceivedCrit,
-      BATTLE_EVENT_TYPE.RECEIVED_DAMAGE: self.processReceivedDamage,
-      BATTLE_EVENT_TYPE.STUN_ASSIST: self.processStunAssist,
-      BATTLE_EVENT_TYPE.TARGET_VISIBILITY: self.processTargetVisibility,
-      BATTLE_EVENT_TYPE.ENEMY_SECTOR_CAPTURED: self.processEnemySectorCaptured,
-      BATTLE_EVENT_TYPE.DESTRUCTIBLE_DAMAGED: self.processDestructibleDamaged,
-      BATTLE_EVENT_TYPE.DESTRUCTIBLE_DESTROYED: self.processDestructibleDestroyed,
-      BATTLE_EVENT_TYPE.DESTRUCTIBLES_DEFENDED: self.processDestructiblesDefended,
-      BATTLE_EVENT_TYPE.DEFENDER_BONUS: self.processDefenderBonus,
-      BATTLE_EVENT_TYPE.SMOKE_ASSIST: self.processSmokeAssist,
-      BATTLE_EVENT_TYPE.INSPIRE_ASSIST: self.processInspireAssist,
-      BATTLE_EVENT_TYPE.BASE_CAPTURE_BLOCKED: self.processBaseCaptureBlocked,
-      BATTLE_EVENT_TYPE.MULTI_STUN: self.processMultiStun,
-      BATTLE_EVENT_TYPE.DETECTED: self.processDetected,
-      BATTLE_EVENT_TYPE.EQUIPMENT_TIMER_EXPIRED: self.processEquipmentTimerExpired,
+      BATTLE_EVENT_TYPE.SPOTTED:                self.processAnyVisibilityExtra('spotted'),
+      BATTLE_EVENT_TYPE.TARGET_VISIBILITY:      self.processAnyVisibilityExtra('targetVisibility'),
+      BATTLE_EVENT_TYPE.DETECTED:               self.processAnyVisibilityExtra('detected'),
+      BATTLE_EVENT_TYPE.RADIO_ASSIST:           self.processAnyDamageExtra('radioAssist'),
+      BATTLE_EVENT_TYPE.TRACK_ASSIST:           self.processAnyDamageExtra('trackAssist'),
+      BATTLE_EVENT_TYPE.TANKING:                self.processAnyDamageExtra('tanking'),
+      BATTLE_EVENT_TYPE.DAMAGE:                 self.processAnyDamageExtra('damage'),
+      BATTLE_EVENT_TYPE.SMOKE_ASSIST:           self.processAnyDamageExtra('smokeAssist'),
+      BATTLE_EVENT_TYPE.INSPIRE_ASSIST:         self.processAnyDamageExtra('inspireAssist'),
+      BATTLE_EVENT_TYPE.RECEIVED_DAMAGE:        self.processAnyDamageExtra('receivedDamage'),
+      BATTLE_EVENT_TYPE.STUN_ASSIST:            self.processAnyDamageExtra('stunAssist'),
+      BATTLE_EVENT_TYPE.CRIT:                   self.processAnyCritsExtra('crit'),
+      BATTLE_EVENT_TYPE.RECEIVED_CRIT:          self.processAnyCritsExtra('receivedCrit'),
+      BATTLE_EVENT_TYPE.ENEMY_SECTOR_CAPTURED:  self.processNamedEvent('enemySectorCaptured'),
+      BATTLE_EVENT_TYPE.DESTRUCTIBLE_DESTROYED: self.processNamedEvent('destructibleDestroyed'),
+      BATTLE_EVENT_TYPE.DEFENDER_BONUS:         self.processNamedEvent('defenderBonus'),
+      BATTLE_EVENT_TYPE.KILL:                   self.processAnyVehicleEvent('kill'),
+      BATTLE_EVENT_TYPE.BASE_CAPTURE_DROPPED:   self.processExtraAsValue('baseCaptureDropped', 'points'),
+      BATTLE_EVENT_TYPE.DESTRUCTIBLE_DAMAGED:   self.processExtraAsValue('destructibleDamaged', 'damage'),
+      BATTLE_EVENT_TYPE.DESTRUCTIBLES_DEFENDED: self.processExtraAsValue('destructiblesDefended', 'extra'),
+      BATTLE_EVENT_TYPE.BASE_CAPTURE_POINTS:    self.processBaseCapturePoints,
+      BATTLE_EVENT_TYPE.BASE_CAPTURE_BLOCKED:   self.processBaseCaptureBlocked,
+      BATTLE_EVENT_TYPE.MULTI_STUN:             self.processMultiStun,
+      BATTLE_EVENT_TYPE.EQUIPMENT_TIMER_EXPIRED: None,
     }
     
   def __onBattleSessionStart(self):
     self.sessionProvider.shared.feedback.onPlayerFeedbackReceived += self.__onPlayerFeedbackReceived
+    self.sessionProvider.shared.feedback.onVehicleDetected += self.__onVehicleDetected
     self.arenaDataProvider = self.sessionProvider.getArenaDP() # type: IArenaDataProvider
+    self.vehicleState = self.sessionProvider.shared.vehicleState # type: VehicleStateController
     
   def __onBattleSessionStop(self):
-    self.sessionProvider.shared.feedback.onPlayerFeedbackReceived += self.__onPlayerFeedbackReceived
+    self.sessionProvider.shared.feedback.onPlayerFeedbackReceived -= self.__onPlayerFeedbackReceived
+    self.sessionProvider.shared.feedback.onVehicleDetected -= self.__onVehicleDetected
 
   def __onPlayerFeedbackReceived(self, events):
     # type: (List[PlayerFeedbackEvent]) -> None
-  
     for event in events:
-      eventType = event.getBattleEventType()
-      if eventType not in self.battleEventProcessors:
-        logger.error('Unknown battle event type: %d', eventType)
-        continue
+      self.processEvent(event)
       
+  def __onVehicleDetected(self, feedback):
+    # type: (PlayerFeedbackEvent) -> None
+    self.processEvent(feedback)
+  
+  def processEvent(self, event):
+    # type: (PlayerFeedbackEvent) -> any
+    
+    if self.vehicleState.getControllingVehicleID() != self.arenaDataProvider.getPlayerVehicleID():
+      return
+    
+    eventType = event.getBattleEventType()
+    if eventType not in self.battleEventProcessors:
+      logger.error('Unknown battle event type: %d', eventType)
+      return
+    
+    if self.battleEventProcessors[eventType] is None:
+      return
+    
+    try:
       processed = self.battleEventProcessors[eventType](event)
-      eventName = processed[0]
-      data = processed[1] if len(processed) > 1 else None
-      self.onPlayerFeedback.trigger({'type': eventName, 'data': data})
-      
+      if processed == IGNORE: return
+    except Exception as e:
+      logCurrentException('Error processing battle event', logger)
+      return
+    
+    eventName = processed[0]
+    data = processed[1] if len(processed) > 1 else None
+    self.onPlayerFeedback.trigger({'type': eventName, 'data': data})
+  
+  # Shared event processors
   def vehicleById(self, vehicleID):
     targetVehicle = self.arenaDataProvider.getVehicleInfo(vehicleID) # type: VehicleArenaInfoVO
     if targetVehicle is None: return None
     
     typeInfo = targetVehicle.vehicleType
+    
+    if typeInfo.compactDescr == 0: return IGNORE
+    
     return {
-      'tag': itemsVehicles.getItemByCompactDescr(typeInfo.compactDescr).name,
+      'tag': itemsVehicles.getItemByCompactDescr(typeInfo.compactDescr).name if typeInfo.compactDescr > 0 else None,
       'localizedName': typeInfo.shortName,
       'localizedShortName': typeInfo.name,
       'level': typeInfo.level,
@@ -92,151 +137,110 @@ class PlayerFeedbackProvider(object):
       'playerName': targetVehicle.player.name if targetVehicle.player else None,
       'playerId': targetVehicle.player.accountDBID if targetVehicle.player else None,
     }
+  
+  def processAnyVisibilityExtra(self, name):
+    # type: (str) -> any
+    
+    def wrapper(event):
+      # type: (PlayerFeedbackEvent) -> any
+      extra = event.getExtra() # type: _VisibilityExtra
+      veh = self.vehicleById(event.getTargetID())
+      if veh == IGNORE: return IGNORE
       
-  def processSpotted(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: _VisibilityExtra
-    veh = self.vehicleById(event.getTargetID())
+      return (name, {
+        'isVisible': bool(extra.isVisible()),
+        'isDirect': bool(extra.isDirect()),
+        'isRoleAction': bool(extra.isRoleAction()),
+        'vehicle': veh
+      })
     
-    return ('spotted', {
-      'vehicle': veh,
-      'isVisible': bool(extra.isVisible()),
-      'isDirect': bool(extra.isDirect()),
-      'isRoleAction': bool(extra.isRoleAction())
-    })
+    return wrapper
+  
+  def processAnyDamageExtra(self, name):
+    # type: (str) -> any
     
-  def processRadioAssist(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: _DamageExtra
+    def wrapper(event):
+      # type: (PlayerFeedbackEvent) -> any
+      extra = event.getExtra() # type: _DamageExtra
+      veh = self.vehicleById(event.getTargetID())
+      
+      reason = ATTACK_REASONS[extra.getAttackReasonID()] if extra.getAttackReasonID() < ATTACK_REASONS_MAX else None
+      secondaryReason = ATTACK_REASONS[extra.getSecondaryAttackReasonID()] if extra.getSecondaryAttackReasonID() < ATTACK_REASONS_MAX else None
+      shellType = extra.getShellType()
+      
+      return (name, {
+        'damage': extra.getDamage(),
+        'attackReason': reason,
+        'secondaryReason': secondaryReason,
+        'shellType': BATTLE_LOG_SHELL_TYPES_NAMES.get(shellType, int(shellType) if shellType else None),
+        'vehicle': veh
+      })
     
-    return ('radioAssist',)
+    return wrapper
 
-  def processTrackAssist(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: _DamageExtra
+  def processAnyCritsExtra(self, name):
+    # type: (str) -> any
     
-    return ('trackAssist',)
-
-  def processBaseCapturePoints(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: int
+    def wrapper(event):
+      # type: (PlayerFeedbackEvent) -> any
+      extra = event.getExtra() # type: _CritsExtra
+      veh = self.vehicleById(event.getTargetID())
+      
+      reasonId = extra._CritsExtra__attackReasonID
+      secondaryReasonId = extra._CritsExtra__secondaryAttackReasonID
+      reason = ATTACK_REASONS[reasonId] if reasonId < ATTACK_REASONS_MAX else None
+      secondaryReason = ATTACK_REASONS[secondaryReasonId] if secondaryReasonId < ATTACK_REASONS_MAX else None
+      shellType = extra.getShellType()
+        
+      return (name, {
+        'critsCount': extra.getCritsCount(),
+        'attackReason': reason,
+        'secondaryReason': secondaryReason,
+        'shellType': BATTLE_LOG_SHELL_TYPES_NAMES.get(shellType, int(shellType) if shellType else None),
+        'vehicle': veh
+      })
     
-    return ('baseCapturePoints',)
-
-  def processBaseCaptureDropped(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: int
+    return wrapper
+  
+  def processAnyVehicleEvent(self, name):
+    # type: (str) -> any
     
-    return ('baseCaptureDropped',)
-
-  def processBaseCaptureBlocked(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: int
+    def wrapper(event):
+      # type: (PlayerFeedbackEvent) -> any
+      veh = self.vehicleById(event.getTargetID())
+      return (name, { 'vehicle': veh })
     
-    return ('baseCaptureBlocked',)
+    return wrapper
 
-  def processTanking(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: int
+  def processNamedEvent(self, name):
+    # type: (str) -> any
     
-    return ('tanking',)
-
-  def processCrit(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: _CritsExtra
+    def wrapper(event):
+      # type: (PlayerFeedbackEvent) -> any
+      return (name,)
     
-    return ('crit',)
+    return wrapper
 
-  def processDamage(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: _DamageExtra
+  def processExtraAsValue(self, name, extraValueName):
+    # type: (str, str) -> any
     
-    return ('damage',)
-
-  def processKill(self, event):
-    # type: (PlayerFeedbackEvent) -> any
+    def wrapper(event):
+      # type: (PlayerFeedbackEvent) -> any
+      return (name, { extraValueName: event.getExtra() })
     
-    return ('kill',)
+    return wrapper  
 
-  def processReceivedCrit(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: _CritsExtra
-    
-    return ('receivedCrit',)
-
-  def processReceivedDamage(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: _DamageExtra
-    
-    return ('receivedDamage',)
-
-  def processStunAssist(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: _DamageExtra
-    
-    return ('stunAssist',)
-
-  def processTargetVisibility(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: _VisibilityExtra
-    
-    return ('targetVisibility',)
-
-  def processEnemySectorCaptured(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    
-    return ('enemySectorCaptured',)
-
-  def processDestructibleDamaged(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: int
-    
-    return ('destructibleDamaged',)
-
-  def processDestructibleDestroyed(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    
-    return ('destructibleDestroyed',)
-
-  def processDestructiblesDefended(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: int
-    
-    return ('destructiblesDefended',)
-
-  def processDefenderBonus(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    
-    return ('defenderBonus',)
-
-  def processSmokeAssist(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: _DamageExtra
-    
-    return ('smokeAssist',)
-
-  def processInspireAssist(self, event):
-    # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: _DamageExtra
-    
-    return ('inspireAssist',)
-
+  # Specific event processors
   def processMultiStun(self, event):
     # type: (PlayerFeedbackEvent) -> any
     extra = event.getExtra() # type: _MultiStunExtra
-    
-    return ('multiStun',)
+    logger.info('Multi stun event: %s' % event.getTargetID())
+    return ('multiStun', { 'stunCount': extra.getTargetsAmount() })
 
-  def processDetected(self, event):
+  def processBaseCapturePoints(self, event):
     # type: (PlayerFeedbackEvent) -> any
-    extra = event.getExtra() # type: _VisibilityExtra
-    
-    return ('detected',)
-
-  def processEquipmentTimerExpired(self, event):
+    return ('baseCapturePoints', { 'points': event.getExtra(), 'session': event.getTargetID() })
+  
+  def processBaseCaptureBlocked(self, event):
     # type: (PlayerFeedbackEvent) -> any
-    return ('equipmentTimerExpired',)
-
-
-        
-        
+    return ('baseCaptureBlocked', { 'points': event.getExtra(), 'session': event.getTargetID() })

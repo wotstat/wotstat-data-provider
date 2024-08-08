@@ -82,6 +82,7 @@ class BattleProvider(TriggersManager.ITriggerListener):
     self.__updateLoop()
   
   def __onBattleSessionStop(self):
+    if not BigWorld.player(): return
     arena = BigWorld.player().arena # type: ClientArena
     arena.onVehicleUpdated -= self.__onVehicleUpdated
     arena.onPeriodChange -= self.__onArenaPeriodChange
@@ -133,6 +134,7 @@ class BattleProvider(TriggersManager.ITriggerListener):
   def typeInfoToVehicleInfo(self, vo):
     # type: (VehicleArenaInfoVO) -> dict
     typeInfo = vo.vehicleType
+    if typeInfo.compactDescr == 0: return None
     return {
       'tag': itemsVehicles.getItemByCompactDescr(typeInfo.compactDescr).name,
       'localizedName': typeInfo.shortName,
