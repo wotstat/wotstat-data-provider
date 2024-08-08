@@ -4,7 +4,9 @@ import TriggersManager
 from constants import ROLE_TYPE_TO_LABEL, ARENA_BONUS_TYPE_IDS, ARENA_GAMEPLAY_NAMES, ATTACK_REASONS, ARENA_PERIOD_NAMES
 from helpers import dependency
 from items.vehicles import VehicleDescriptor
-from skeletons.gui.battle_session import IBattleSessionProvider
+from items import vehicles as itemsVehicles
+from skeletons.gui.battle_session import IArenaDataProvider, IBattleSessionProvider
+from gui.battle_control.arena_info.arena_vos import VehicleArenaInfoVO, VehicleTypeInfoVO
 import copy
 
 from vehicle_systems.vehicle_damage_state import VehicleDamageState
@@ -60,12 +62,15 @@ class BattleProvider(TriggersManager.ITriggerListener):
     
     self.sessionProvider.onBattleSessionStart += self.__onBattleSessionStart
     self.sessionProvider.onBattleSessionStop += self.__onBattleSessionStop
+    self.arenaDataProvider = self.sessionProvider.getArenaDP() # type: IArenaDataProvider
     
   def __onBattleSessionStart(self):
     arena = BigWorld.player().arena # type: ClientArena
     arena.onVehicleUpdated += self.__onVehicleUpdated
     arena.onPeriodChange += self.__onArenaPeriodChange
     arena.onTeamBasePointsUpdate += self.__onTeamBasePointsUpdate
+    
+    self.arenaDataProvider = self.sessionProvider.getArenaDP() # type: IArenaDataProvider
     
     self.arenaPeriod.setValue({
       'tag': ARENA_PERIOD_NAMES[arena.period],
@@ -125,6 +130,21 @@ class BattleProvider(TriggersManager.ITriggerListener):
       'role': ROLE_TYPE_TO_LABEL.get(typeDescriptor.type.role, 'None'),
     }
     
+  def typeInfoToVehicleInfo(self, vo):
+    # type: (VehicleArenaInfoVO) -> dict
+    typeInfo = vo.vehicleType
+    return {
+      'tag': itemsVehicles.getItemByCompactDescr(typeInfo.compactDescr).name,
+      'localizedName': typeInfo.shortName,
+      'localizedShortName': typeInfo.name,
+      'level': typeInfo.level,
+      'class': typeInfo.classTag,
+      'role': ROLE_TYPE_TO_LABEL.get(typeInfo.role, 'None'),
+      'team': vo.team,
+      'playerName': vo.player.name if vo.player else None,
+      'playerId': vo.player.accountDBID if vo.player else None,
+    }
+    
   @withExceptionHandling(logger)
   def __onVehicleChanged(self, obj, *a, **k):
     vid = BigWorld.player().playerVehicleID
@@ -146,28 +166,15 @@ class BattleProvider(TriggersManager.ITriggerListener):
       self.maxHealth.setValue(obj.maxHealth)
       self.isAlive.setValue(bool(obj.isAlive()))
       
-    targetVehicle = BigWorld.entity(vehId) # type: Vehicle
-    attackerVehicle = BigWorld.entity(attackerID) # type: Vehicle
+    if self.arenaDataProvider is None:
+      return
     
-    arenaVehicles = BigWorld.player().arena.vehicles
-    
-    if targetVehicle and arenaVehicles.has_key(vehId):
-      vInfo = arenaVehicles[vehId]
-      targetInfo = self.typeDescriptorToVehicleInfo(targetVehicle.typeDescriptor)
-      targetInfo['playerName'] = vInfo.get('name', vInfo.get('fakeName', None))
-      targetInfo['playerId'] = vInfo.get('accountDBID', None)
-      targetInfo['team'] = vInfo.get('team', None)
-      
-    if attackerVehicle and arenaVehicles.has_key(attackerID):
-      vInfo = arenaVehicles[attackerID]
-      attackerInfo = self.typeDescriptorToVehicleInfo(attackerVehicle.typeDescriptor)
-      attackerInfo['playerName'] = vInfo.get('name', vInfo.get('fakeName', None))
-      attackerInfo['playerId'] = vInfo.get('accountDBID', None)
-      attackerInfo['team'] = vInfo.get('team', None)
+    targetVehicle = self.arenaDataProvider.getVehicleInfo(vehId) # type: VehicleArenaInfoVO
+    attackerVehicle = self.arenaDataProvider.getVehicleInfo(attackerID) # type: VehicleArenaInfoVO
       
     self.onDamageTrigger.trigger({
-      'target': targetInfo if targetVehicle else None,
-      'attacker': attackerInfo if attackerVehicle else None,
+      'target': self.typeInfoToVehicleInfo(targetVehicle) if targetVehicle else None,
+      'attacker': self.typeInfoToVehicleInfo(attackerVehicle) if attackerVehicle else None,
       'damage': max(0, oldHealth) - max(0, newHealth),
       'health': max(0, newHealth),
       'reason': ATTACK_REASONS[attackReasonID]
