@@ -7,7 +7,6 @@ from skeletons.gui.battle_session import IBattleSessionProvider
 from skeletons.gui.game_control import IGameSessionController
 from skeletons.gui.shared import IItemsCache
 from ..DataProviderSDK import DataProviderSDK
-from PlayerEvents import g_playerEvents
 from helpers import dependency
 
 from ..hook import registerEvent
@@ -47,6 +46,7 @@ class AimingProvider(object):
     BigWorld.player().enableServerAim(True)
     self.isServerAim.setValue(bool(self.settingsCore.getSetting('useServerAim')))
     
+  @withExceptionHandling(logger)
   def __onEnterWorld(self, *args, **kwargs):
     self.isServerAim.setValue(bool(self.settingsCore.getSetting('useServerAim')))
     

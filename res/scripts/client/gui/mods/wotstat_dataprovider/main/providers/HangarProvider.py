@@ -1,5 +1,3 @@
-import HangarVehicle
-import BigWorld
 from constants import PREBATTLE_TYPE_NAMES, QUEUE_TYPE_NAMES, ROLE_TYPE_TO_LABEL
 from helpers import dependency
 from ..DataProviderSDK import DataProviderSDK
@@ -40,7 +38,6 @@ class HangarProvider(object):
     self.onEnqueueTrigger = sdk.createTrigger(['hangar', 'onEnqueue'])
     self.onDequeueTrigger = sdk.createTrigger(['hangar', 'onDequeue'])
     
-    self.hangarsSpace.onVehicleChanged += self.__onVehicleChanged
     g_playerEvents.onAccountBecomePlayer += self.__onAccountBecomePlayer
     g_playerEvents.onAccountBecomeNonPlayer += self.__onAccountBecomeNonPlayer
     
@@ -52,35 +49,19 @@ class HangarProvider(object):
     
     g_playerEvents.onDequeued += self.__onDequeue
     
+  @withExceptionHandling(logger)
   def __onAccountBecomePlayer(self):
     g_currentVehicle.onChanged += self.__onCurrentVehicleChanged
     self.__onCurrentVehicleChanged()
     self.isInHangar.setValue(True)
     
+  @withExceptionHandling(logger)
   def __onAccountBecomeNonPlayer(self):
     g_currentVehicle.onChanged -= self.__onCurrentVehicleChanged
     self.isInHangar.setValue(False)
   
   @withExceptionHandling(logger)
-  def __onVehicleChanged(self, *args, **kwargs):
-    vehicle = self.hangarsSpace.getVehicleEntity() # type: HangarVehicle
-    if not vehicle:
-      self.vehicle.setValue(None)
-      return
-    
-    self.vehicle.setValue({
-      'tag': vehicle.typeDescriptor.name,
-      'class': vehicle.typeDescriptor.type.classTag,
-      'role': ROLE_TYPE_TO_LABEL.get(vehicle.typeDescriptor.type.role, 'None'),
-      'level': vehicle.typeDescriptor.level,
-      'localizedName': vehicle.typeDescriptor.type.userString,
-      'localizedShortName': vehicle.typeDescriptor.type.shortUserString,
-    })
-    
-  @withExceptionHandling(logger)
   def __onCurrentVehicleChanged(self, *args, **kwargs):
-    logger.info('HangarProvider: Current vehicle changed')
-    
     item = g_currentVehicle.item
     
     if not item:
@@ -88,6 +69,15 @@ class HangarProvider(object):
     
     self.isBroken.setValue(item.isBroken)
     self.isInBattle.setValue(item.isInBattle)
+    
+    self.vehicle.setValue({
+      'tag': item.typeDescr.name,
+      'class': item.typeDescr.classTag,
+      'role': ROLE_TYPE_TO_LABEL.get(item.typeDescr.role, 'None'),
+      'level': item.typeDescr.level,
+      'localizedName': item.typeDescr.userString,
+      'localizedShortName': item.typeDescr.shortUserString,
+    })
     
     self.crew.setValue([{
         'isFemale': t[1].isFemale,

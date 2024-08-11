@@ -1,11 +1,14 @@
 import BigWorld
 from constants import ROLE_TYPE_TO_LABEL
 from ..DataProviderSDK import DataProviderSDK
-from Account import PlayerAccount
 from PlayerEvents import g_playerEvents
 from helpers import dependency
 from skeletons.gui.game_control import IPlatoonController
 from items import vehicles as vehiclesUtils
+
+from ..ExceptionHandling import withExceptionHandling
+
+from . import logger
 
 class PlatoonProvider(object):
   
@@ -24,10 +27,11 @@ class PlatoonProvider(object):
     self.platoon.onPlatoonTankRemove += self.__onPlatoonUpdated
     g_playerEvents.onAccountBecomePlayer += self.__onPlatoonUpdated
     
+  @withExceptionHandling(logger)
   def __onPlatoonUpdated(self, *args, **kwargs):
     BigWorld.callback(0, self.__updateStats)
 
-    
+  @withExceptionHandling(logger)  
   def __updateStats(self):
     self.isInPlatoon.setValue(self.platoon.isInPlatoon())
     self.maxSlots.setValue(self.platoon.getMaxSlotCount())

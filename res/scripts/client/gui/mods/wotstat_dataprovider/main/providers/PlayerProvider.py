@@ -6,6 +6,9 @@ from Event import Event
 from gui.clans.clan_cache import g_clanCache
 
 from ..DataProviderSDK import DataProviderSDK
+from ..ExceptionHandling import withExceptionHandling
+
+from . import logger
 
 class PlayerProvider(object):
   
@@ -22,13 +25,14 @@ class PlayerProvider(object):
     global onPlayerId
     onPlayerId += self.__onPlayerId
     
-  
+  @withExceptionHandling(logger)
   def __onAccountBecomePlayer(self):
     player = BigWorld.player() # type: PlayerAccount
     self.playerName.setValue(player.name)
     self.clanId.setValue(g_clanCache.clanDBID)
     self.clanTag.setValue(g_clanCache.clanAbbrev)
     
+  @withExceptionHandling(logger)
   def __onPlayerId(self, playerId):
     self.playerId.setValue(playerId)
   

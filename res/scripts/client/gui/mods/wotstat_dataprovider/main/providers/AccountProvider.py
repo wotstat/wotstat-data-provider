@@ -1,10 +1,12 @@
 from skeletons.gui.game_control import IGameSessionController
 from skeletons.gui.shared import IItemsCache
 from ..DataProviderSDK import DataProviderSDK
-from Account import PlayerAccount
-from PlayerEvents import g_playerEvents
 from constants import PREMIUM_TYPE
 from helpers import dependency
+
+from ..ExceptionHandling import withExceptionHandling
+
+from . import logger
 
 class AccountProvider(object):
 
@@ -22,6 +24,7 @@ class AccountProvider(object):
     
     self.itemsCache.onSyncCompleted += self.__updateItemsCache
     
+  @withExceptionHandling(logger)
   def __updateItemsCache(self, *args, **kwargs):
     stats = self.itemsCache.items.stats
     self.credits.setValue(stats.actualCredits)

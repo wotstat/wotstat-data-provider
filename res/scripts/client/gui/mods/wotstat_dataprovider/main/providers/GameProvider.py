@@ -7,7 +7,6 @@ from ..DataProviderSDK import DataProviderSDK
 from ..crossGameUtils import readClientServerVersion
 from helpers import dependency, getClientLanguage
 from constants import AUTH_REALM, SERVER_TICK_LENGTH
-from gui.Scaleform.daapi.view.lobby.battle_queue import BattleQueue
 from gui.Scaleform.daapi.view.login.LoginView import LoginView
 import BattleReplay
 
@@ -49,25 +48,31 @@ class GameProvider(object):
     self.__serverTimeUpdateLoop()
     self.__pingFpsUpdateLoop()
     
+  @withExceptionHandling(logger)
   def __onConnected(self, *args, **kwargs):
     self.server.setValue(self.connectionMgr.serverUserName)
     self.isInReplay.setValue(BattleReplay.isPlaying())
     
+  @withExceptionHandling(logger)
   def __onBattleSessionStart(self):
     self.state.setValue(GAME_STATE.BATTLE)
     self.isInReplay.setValue(BattleReplay.isPlaying())
     
+  @withExceptionHandling(logger)
   def __onLoginPopulate(self):
     self.state.setValue(GAME_STATE.LOGIN)
     
+  @withExceptionHandling(logger)
   def __onHangarSpaceCreate(self):
     self.state.setValue(GAME_STATE.HANGAR)
     self.isInReplay.setValue(BattleReplay.isPlaying())
     
+  @withExceptionHandling(logger)
   def __serverTimeUpdateLoop(self):
     BigWorld.callback(1, self.__serverTimeUpdateLoop)
     self.serverTime.setValue(BigWorld.serverTime())
     
+  @withExceptionHandling(logger)
   def __pingFpsUpdateLoop(self):
     BigWorld.callback(0.1, self.__pingFpsUpdateLoop)
     self.ping.setValue(max(BigWorld.LatencyInfo().value[3] - 0.5 * SERVER_TICK_LENGTH, 0))

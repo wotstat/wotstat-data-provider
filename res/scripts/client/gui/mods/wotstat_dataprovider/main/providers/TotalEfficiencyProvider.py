@@ -3,6 +3,9 @@ from helpers import dependency
 from gui.battle_control.battle_constants import PERSONAL_EFFICIENCY_TYPE
 from skeletons.gui.battle_session import IBattleSessionProvider
 
+from ..ExceptionHandling import withExceptionHandling
+
+from . import logger
 
 class TotalEfficiencyProvider(object):
   sessionProvider = dependency.descriptor(IBattleSessionProvider) # type: IBattleSessionProvider
@@ -18,16 +21,21 @@ class TotalEfficiencyProvider(object):
     self.sessionProvider.onBattleSessionStart += self.__onBattleSessionStart
     self.sessionProvider.onBattleSessionStop += self.__onBattleSessionStop
     
+  @withExceptionHandling(logger)
   def __onBattleSessionStart(self):
-    self.sessionProvider.shared.personalEfficiencyCtrl.onTotalEfficiencyUpdated += self.__onTotalEfficiencyReceived
+    if self.sessionProvider.shared.personalEfficiencyCtrl:
+      self.sessionProvider.shared.personalEfficiencyCtrl.onTotalEfficiencyUpdated += self.__onTotalEfficiencyReceived
     self.damage.setValue(0)
     self.assist.setValue(0)
     self.blocked.setValue(0)
     self.stun.setValue(0)
     
+  @withExceptionHandling(logger)
   def __onBattleSessionStop(self):
-    self.sessionProvider.shared.personalEfficiencyCtrl.onTotalEfficiencyUpdated += self.__onTotalEfficiencyReceived
+    if self.sessionProvider.shared.personalEfficiencyCtrl:
+      self.sessionProvider.shared.personalEfficiencyCtrl.onTotalEfficiencyUpdated += self.__onTotalEfficiencyReceived
 
+  @withExceptionHandling(logger)
   def __onTotalEfficiencyReceived(self, diff):
     if PERSONAL_EFFICIENCY_TYPE.DAMAGE in diff:
       self.damage.setValue(diff[PERSONAL_EFFICIENCY_TYPE.DAMAGE])

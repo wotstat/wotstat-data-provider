@@ -6,7 +6,7 @@ from helpers import dependency
 from items.vehicles import VehicleDescriptor
 from items import vehicles as itemsVehicles
 from skeletons.gui.battle_session import IArenaDataProvider, IBattleSessionProvider
-from gui.battle_control.arena_info.arena_vos import VehicleArenaInfoVO, VehicleTypeInfoVO
+from gui.battle_control.arena_info.arena_vos import VehicleArenaInfoVO
 import copy
 
 from vehicle_systems.vehicle_damage_state import VehicleDamageState
@@ -15,7 +15,6 @@ from ..DataProviderSDK import DataProviderSDK
 from Avatar import PlayerAvatar
 from Vehicle import Vehicle
 from Event import Event
-from PlayerEvents import g_playerEvents
 from gun_rotation_shared import decodeGunAngles
 
 from ..hook import registerEvent
@@ -23,7 +22,6 @@ from ..ExceptionHandling import withExceptionHandling
 from . import logger
 
 class BattleProvider(TriggersManager.ITriggerListener):
-  
   
   sessionProvider = dependency.descriptor(IBattleSessionProvider) # type: IBattleSessionProvider
 
@@ -64,6 +62,7 @@ class BattleProvider(TriggersManager.ITriggerListener):
     self.sessionProvider.onBattleSessionStop += self.__onBattleSessionStop
     self.arenaDataProvider = self.sessionProvider.getArenaDP() # type: IArenaDataProvider
     
+  @withExceptionHandling(logger)
   def __onBattleSessionStart(self):
     arena = BigWorld.player().arena # type: ClientArena
     arena.onVehicleUpdated += self.__onVehicleUpdated
@@ -81,6 +80,7 @@ class BattleProvider(TriggersManager.ITriggerListener):
     self.started = True
     self.__updateLoop()
   
+  @withExceptionHandling(logger)
   def __onBattleSessionStop(self):
     if not BigWorld.player(): return
     arena = BigWorld.player().arena # type: ClientArena
