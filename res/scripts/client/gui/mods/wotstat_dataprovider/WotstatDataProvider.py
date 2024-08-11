@@ -2,6 +2,7 @@
 from .common.ServerLoggerBackend import ServerLoggerBackend
 from .common.Logger import Logger, SimpleLoggerBackend
 from .common.Config import Config
+from .common.ModUpdater import ModUpdater
 
 from .main import setup
 
@@ -29,5 +30,10 @@ class WotstatDataProvider(object):
                           modVersion=version,
                           minLevel="INFO")
     ])
+    
+    updator = ModUpdater(modName="wotstat.data-provider",
+                         currentVersion=version,
+                         ghUrl=self.config.get('ghURL'))
+    updator.updateToGitHubReleases(lambda status: logger.info("Update status: %s" % status))
     
     setup(logger)
