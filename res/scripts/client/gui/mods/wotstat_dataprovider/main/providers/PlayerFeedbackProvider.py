@@ -76,6 +76,7 @@ class PlayerFeedbackProvider(object):
     
   @withExceptionHandling(logger)
   def __onBattleSessionStop(self):
+    if not self.sessionProvider.shared.feedback: return
     self.sessionProvider.shared.feedback.onPlayerFeedbackReceived -= self.__onPlayerFeedbackReceived
     self.sessionProvider.shared.feedback.onVehicleDetected -= self.__onVehicleDetected
 

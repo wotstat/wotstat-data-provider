@@ -28,6 +28,7 @@ class GameProvider(object):
   
   def __init__(self, sdk):
     # type: (DataProviderSDK) -> None
+    sdk.createState(['game', 'dataProviderVersion'], BigWorld.wotstat_dataProvider.version)
     self.version = sdk.createState(['game', 'version'], readClientServerVersion()[1])
     self.region = sdk.createState(['game', 'region'], AUTH_REALM)
     self.language = sdk.createState(['game', 'language'], getClientLanguage())
