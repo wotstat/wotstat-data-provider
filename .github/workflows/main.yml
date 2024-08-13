@@ -30,7 +30,7 @@ jobs:
         shell: bash
 
       - name: Archive production artifacts
-        uses:actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.MOD }}
           path: ${{ env.MOD }}
