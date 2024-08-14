@@ -1,0 +1,6 @@
+<root>
+  <id>example.data-provider-extension</id>
+  <version>{{VERSION}}</version>
+  <name>example.data-provider-extension</name>
+  <description>DataProvider Extensoin example</description>
+</root>

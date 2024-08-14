@@ -5,9 +5,9 @@
 ![](.github/data-provider.png)
 
 > [!NOTE]
-> Копия этого мода уже встроена в [wotstat-widgets](https://github.com/WOT-STAT/wotstat-widgets), если вы делаете виджеты для обычных игроков, им не нужно устанавливать этот мод.
+> Функционал этого мода уже встроен в [wotstat-widgets](https://github.com/WOT-STAT/wotstat-widgets), если вы делаете виджеты для обычных игроков, им не нужно дополнительно ничего устанавливать.
 
-Мод полезен для стримеров, которые хотят встроить виджеты в OBS, и не хотят ставить *тяжелый* `wotstat-widgets`.
+Данный мод полезен для стримеров, которые хотят встроить виджеты в OBS, но не хотят ставить *тяжелый* `wotstat-widgets`.
 
 Этот мод никак не отображается в игре, не отправляет уведомлений и не добавляет никаких элементов интерфейса.
 
@@ -126,4 +126,39 @@ type TriggerMessage = {
 
 > [!NOTE]
 > Полный пример мода-расширения смотрите в [extension-example](./extension-example/README.md)
+
+### Проверка наличия `dataProvider`
+```python
+def checkDataProvider():
+  if not hasattr(BigWorld, 'wotstat_dataProvider'):
+    return False
+  return BigWorld.wotstat_dataProvider.version
+```
+
+### Регистрация расширения
+```python
+demo_extension = BigWorld.wotstat_dataProvider.registerExtension('demo-extension')
+```
+
+### Состояние (State)
+```python
+# регистрация состояния
+state = demo_extension.createState(['demo', 'state'], 'Hello World!')
+
+# получить текущее значение
+value = state.getValue()
+
+# установить новое значение
+state.setValue('Hello World, Again!')
+```
+
+### Триггер (Trigger)
+```python
+# регистрация триггера
+state = demo_extension.createTrigger(['demo', 'trigger'])
+
+# вызов триггера c данными
+trigger.trigger('Hello World from Trigger!')
+```
+
 

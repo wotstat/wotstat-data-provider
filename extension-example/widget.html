@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Extension Demo</title>
+</head>
+
+<body>
+  <script src="https://unpkg.com/wotstat-widgets-sdk"></script>
+  <script type="module">
+    const { WidgetSDK, WidgetMetaTags } = WotstatWidgetsSdk
+
+    WidgetMetaTags.enableAutoHeight()
+    const sdk = new WidgetSDK()
+    sdk.data.extensions.demoExtension.demo.state.watch((newState, oldState) => {
+      document.getElementById('state-value').innerText = `${newState}`
+    })
+
+    sdk.data.extensions.demoExtension.demo.trigger.watch(key => {
+      document.getElementById('trigger-value').innerText = `${key}`
+    })
+  </script>
+
+  <style>
+    h1,
+    p {
+      margin: 0;
+    }
+  </style>
+
+  <div class="widgets-sdk-styles">
+    <div class="autoscale">
+      <div class="card">
+        <h1>Extension demo</h1>
+        <br>
+        <p class="secondary">Demo state [SPACE]: <span class="primary num" id="state-value"></span></p>
+        <br>
+        <p class="secondary">Last trigger [T]: <span class="primary num" id="trigger-value"></span></p>
+      </div>
+    </div>
+  </div>
+
+</body>
+
+</html>
