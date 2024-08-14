@@ -125,7 +125,7 @@ type TriggerMessage = {
 Другие моды могут создавать свои состояния и триггеры, их данные будут отправляться по общему каналу связи.
 
 > [!NOTE]
-> Полный пример мода-расширения смотрите в [extension-example](./extension-example/README.md)
+> Полный пример мода-расширения смотрите в [extension-example](./extension-example)
 
 ### Проверка наличия `dataProvider`
 ```python
