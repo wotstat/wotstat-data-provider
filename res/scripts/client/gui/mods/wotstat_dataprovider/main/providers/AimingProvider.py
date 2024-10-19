@@ -51,6 +51,7 @@ class AimingProvider(object):
     self.isAutoAim.setValue(False)
     BigWorld.player().enableServerAim(True)
     self.isServerAim.setValue(self.isEnableServerAim())
+    self.aimingMode.setValue(None)
     
   @withExceptionHandling(logger)
   def __onEnterWorld(self, *args, **kwargs):
