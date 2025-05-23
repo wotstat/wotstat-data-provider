@@ -20,7 +20,7 @@ jobs:
         shell: bash
         run: |
           VERSION=${GITHUB_REF_NAME#v}
-          BASE=wotstat.positions_$VERSION
+          BASE=wotstat.data-provider_$VERSION
           WOTMOD=${BASE}.wotmod
           MTMOD=${BASE}.mtmod
           echo "VERSION=$VERSION" >> $GITHUB_ENV
