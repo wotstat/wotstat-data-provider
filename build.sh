@@ -1,5 +1,6 @@
 #!/bin/bash
 
+MOD_NAME="wotstat.data-provider"
 d=false
 
 while getopts "v:d" flag
@@ -37,7 +38,7 @@ meta="${meta/\{\{VERSION\}\}/$v}"
 cd ./build
 echo "$meta" > ./meta.xml
 
-folder="wotstat.data-provider_$v.wotmod"
+folder=$MOD_NAME"_$v.wotmod"
 
 rm -rf $folder
 
@@ -48,3 +49,5 @@ zip -vr -0 -X $folder meta.xml
 cd ../
 cp ./build/$folder $folder
 rm -rf ./build
+
+cp $folder $MOD_NAME"_$v.mtmod"

@@ -11,6 +11,7 @@ from helpers import getShortClientVersion
 from ..main.ExceptionHandling import withExceptionHandling
 
 from .Logger import Logger
+from .CrossGameUtils import gamePublisher, PUBLISHER
 
 GH_HEADERS = {
   'X-GitHub-Api-Version': '2022-11-28',
@@ -19,6 +20,7 @@ GH_HEADERS = {
 }
 
 logger = Logger.instance()
+modExtension = '.mtmod' if gamePublisher() == PUBLISHER.LESTA else '.wotmod'
 
 def _numericVersion():
   return getShortClientVersion().split('v.')[1].strip()
@@ -38,11 +40,14 @@ class ModUpdater(object):
     self.currentVersion = currentVersion
 
   def getFullModName(self, version=None):
-    return self.modName + '_' + (version if version else self.currentVersion) + '.wotmod'
+    return self.modName + '_' + (version if version else self.currentVersion) + modExtension
   
+  @withExceptionHandling(logger)
   def copyToNextVersions(self): 
     gameVersion = _numericVersion()
     currentMod = os.path.join(os.path.abspath('./mods/'), gameVersion, self.getFullModName())
+
+    if not os.path.exists(currentMod): return
 
     def increaseVersion(version, index):
       return '.'.join(
@@ -120,7 +125,7 @@ class ModUpdater(object):
         logger.error('GH Update. Can not parse canary_upgrade in release notes')
 
       assets = parsed['assets']
-      asset = filter(lambda x: ('name' in x) and (x['name'] == self.modName + '_' + latestVersion + '.wotmod'), assets)
+      asset = filter(lambda x: ('name' in x) and (x['name'] == 'wotstat.positions_' + latestVersion + modExtension), assets)
       if not len(asset) > 0:
         logger.error('GH Update. Can not find asset for version: %s' % latestVersion)
         return onCompleteInvoke(UpdateStatus.BAD_INFO)

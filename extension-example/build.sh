@@ -1,4 +1,7 @@
 
+# Название мода
+MOD_NAME="example.data-provider-extension"
+
 # Получение агрументов командной строки
 while getopts "v:" flag
 do
@@ -26,7 +29,7 @@ echo "$meta" > ./meta.xml
 
 
 # Удаление старой wotmod сборки и создание новой
-target="example.data-provider-extension_$v.wotmod"
+target=$MOD_NAME"_$v.wotmod"
 
 rm -rf $target
 zip -dvr -0 -X $target res -i "*.pyc"
@@ -36,3 +39,5 @@ zip -vr -0 -X $target meta.xml
 cd ../
 cp ./build/$target $target
 rm -rf ./build
+
+cp $target $MOD_NAME"_$v.mtmod"

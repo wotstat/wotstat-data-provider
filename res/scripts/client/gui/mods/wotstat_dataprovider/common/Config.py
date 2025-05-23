@@ -11,7 +11,7 @@ class Config:
   config = {}
   defaultParams = {
     'lokiURL': 'https://loki.wotstat.info/loki/api/v1/push',
-    'ghURL': 'https://api.github.com/repos/WOT-STAT/data-provider/releases/latest',
+    'ghURL': 'https://api.github.com/repos/wotstat/data-provider/releases/latest',
   }
 
   def __init__(self, configPath, defaultParams=None):
